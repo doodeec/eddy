@@ -6,11 +6,13 @@ package com.doodeec.eddy;
 //@SuppressWarnings("unused")
 public interface IEddyManager {
 
+    String WAKELOCK_TAG = IEddyManager.class.getSimpleName();
+
     void startScanning();
 
     void stopScanning();
 
-    void startWatchDog(IEddyListener listener);
+    void startWatchDog(String macUrl, IEddyListener listener);
 
-    void stopWatchDog(IEddyListener listener);
+    void stopWatchDog(String macUrl, IEddyListener listener);
 }

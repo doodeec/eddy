@@ -18,20 +18,21 @@ public class EddyManagerImplL extends EddyManager {
     final ScanCallback mScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            //TODO
             Log.d(getClass().getSimpleName(), "onScanResult");
+            foundDevice(result.getDevice().getAddress());
         }
 
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            //TODO
             Log.d(getClass().getSimpleName(), "onBatchScanResults");
+            for (ScanResult result: results) {
+                foundDevice(result.getDevice().getAddress());
+            }
         }
 
         @Override
         public void onScanFailed(int errorCode) {
-            //TODO
-            Log.d(getClass().getSimpleName(), "onScanFailed");
+            Log.d(getClass().getSimpleName(), "onScanFailed - " + errorCode);
         }
     };
 

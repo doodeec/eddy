@@ -33,7 +33,7 @@ public class EddyManagerImpl20 extends EddyManager implements BluetoothAdapter.L
 
     @Override
     public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
-        //TODO
         Log.d(getClass().getSimpleName(), "onLeScan");
+        foundDevice(device.getAddress());
     }
 }

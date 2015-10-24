@@ -5,7 +5,7 @@ package com.doodeec.eddy;
  */
 public interface IEddyListener {
 
-    void onEnteredArea();
+    void onEnteredArea(String macAddress);
 
-    void onExitedArea();
+    void onExitedArea(String macAddress);
 }

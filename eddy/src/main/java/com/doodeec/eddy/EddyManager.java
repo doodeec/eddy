@@ -48,6 +48,18 @@ public abstract class EddyManager extends BroadcastReceiver implements IEddyMana
         }
     };
 
+    /**
+     * General listeners
+     * All listeners without specific mac address
+     * These listeners are notified about every enter/leave event with every device address
+     * so make sure you don't do any duplicate jobs when these are used
+     */
+    protected List<IEddyListener> mGeneralListeners = new ArrayList<>();
+    /**
+     * Specific listeners
+     * All listeners with specific mac address they listen to
+     * These listeners are notified only when event occurs on specific mac address
+     */
     protected Map<String, List<IEddyListener>> mListenerMap = new HashMap<>();
 
     protected EddyManager(Context context) {
@@ -57,7 +69,7 @@ public abstract class EddyManager extends BroadcastReceiver implements IEddyMana
         mBTAdapter = mBTManager.getAdapter();
         mWL = mPowManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG);
 
-
+        //TODO move alarm manager elsewhere (startWD method?)
         Intent intent = new Intent(context, getClass());
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
 
@@ -81,13 +93,16 @@ public abstract class EddyManager extends BroadcastReceiver implements IEddyMana
 
     @Override
     public void startWatchDog(String macAddr, IEddyListener listener) {
-        Log.d(getClass().getSimpleName(), "startWatchDog");
-        if (!mListenerMap.containsKey(macAddr)) {
-            mListenerMap.put(macAddr, new ArrayList<IEddyListener>());
-        }
+        Log.d(getClass().getSimpleName(), "startWatchDog - " + macAddr);
+        if (macAddr == null) {
+            mGeneralListeners.add(listener);
+        } else {
+            if (!mListenerMap.containsKey(macAddr)) {
+                mListenerMap.put(macAddr, new ArrayList<IEddyListener>());
+            }
 
-        mListenerMap.get(macAddr).add(listener);
-        //TODO
+            mListenerMap.get(macAddr).add(listener);
+        }
 
         if (!mScanActive) {
             startScanning();
@@ -96,11 +111,21 @@ public abstract class EddyManager extends BroadcastReceiver implements IEddyMana
 
     @Override
     public void stopWatchDog(String macAddr, IEddyListener listener) {
-        Log.d(getClass().getSimpleName(), "stopWatchDog");
-        if (mListenerMap.containsKey(macAddr)) {
-            mListenerMap.get(macAddr).remove(listener);
+        Log.d(getClass().getSimpleName(), "stopWatchDog - " + macAddr);
+        if (macAddr == null) {
+            mGeneralListeners.remove(listener);
+        } else {
+            if (mListenerMap.containsKey(macAddr)) {
+                mListenerMap.get(macAddr).remove(listener);
+                if (mListenerMap.get(macAddr).size() == 0) {
+                    mListenerMap.remove(macAddr);
+                }
+            }
         }
-        //TODO
+
+        if (mListenerMap.size() == 0 && mGeneralListeners.size() == 0) {
+            stopScanning();
+        }
     }
 
     protected void foundDevice(String macAddr) {
@@ -116,7 +141,68 @@ public abstract class EddyManager extends BroadcastReceiver implements IEddyMana
         mWL.release();
     }
 
+    /**
+     * Resolves all listeners after scan procedure is finished and before wakelock is released
+     */
     private void resolveListeners() {
-        //TODO
+        List<String> localFound = new ArrayList<>();
+        localFound.addAll(mFoundDevices);
+
+        for (String macAddr : mLastFoundDevices) {
+            if (!localFound.contains(macAddr)) {
+                notifyListeners(macAddr, false);
+                notifyGeneralListeners(macAddr, false);
+            } else {
+                // simplify next for cycle, if address was found in both lists,
+                // there won't be any notification anyway
+                localFound.remove(macAddr);
+            }
+        }
+
+        for (String macAddr : localFound) {
+            if (!mLastFoundDevices.contains(macAddr)) {
+                notifyListeners(macAddr, true);
+                notifyGeneralListeners(macAddr, true);
+            }
+        }
+    }
+
+    /**
+     * Notifies all specific listeners
+     *
+     * @param macAddr mac address of BT device
+     * @param entered true if area was entered, false if area was left
+     */
+    private void notifyListeners(String macAddr, boolean entered) {
+        internalNotify(macAddr, entered, mListenerMap.get(macAddr));
+    }
+
+    /**
+     * Notifies all general listeners
+     *
+     * @param macAddr mac address of BT device
+     * @param entered true if area was entered, false if area was left
+     *
+     * @see #mGeneralListeners
+     */
+    private void notifyGeneralListeners(String macAddr, boolean entered) {
+        internalNotify(macAddr, entered, mGeneralListeners);
+    }
+
+    /**
+     * Loops through listeners and notifies each of them about entering/leaving the area
+     *
+     * @param macAddr   mac address of BT device
+     * @param entered   true if area was entered, false if area was left
+     * @param listeners list of listeners
+     */
+    private void internalNotify(String macAddr, boolean entered, List<IEddyListener> listeners) {
+        for (IEddyListener eddyListener : listeners) {
+            if (entered) {
+                eddyListener.onEnteredArea(macAddr);
+            } else {
+                eddyListener.onExitedArea(macAddr);
+            }
+        }
     }
 }
